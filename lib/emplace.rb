@@ -82,6 +82,13 @@ module Emplace
         "#{super}-msvc"
       end
     end
+    def build
+      if cfg = ENV['CONFIGURATION']
+        sh "cmake --build . --target install --config #{cfg}"
+      else
+        super
+      end
+    end
     def package(name)
       sh "7z a #{package_name(name)} #{name}"
     end
