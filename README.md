@@ -21,9 +21,11 @@ Or install it yourself as:
 ## Usage
 
 	require 'emplace'
-	Emplace.cmake
-	Emplace.build
-	Emplace.package('package-name')
+	project = Emplace.new 'project-name'
+	project.cmake!
+	project.build!
+	project.test!
+	project.package!
 
 ## Contributing
 

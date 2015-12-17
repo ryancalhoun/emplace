@@ -1,18 +1,60 @@
+require 'fileutils'
+
 module Emplace
 
-  class CmakeBuild
-    def cmake
-      sh "cmake -G \"#{cmake_generator}\" ."
+  class Project
+    def initialize(name, impl = Emplace.load_env)
+      @name = name
+      @impl = impl
     end
-    def build
-      sh "cmake --build . --target install"
+    def clean!
+      @impl.clean
     end
-    def sh(cmd)
-      raise $? unless system cmd
+    def cmake!
+      @impl.cmake @name
+    end
+    def build!
+      @impl.build
+    end
+    def test!
+      @impl.test
+    end
+    def package!
+      @impl.package @name
     end
   end
 
-  class Unix < CmakeBuild
+  class CMakeBuild
+    def build_dir
+      'build'  
+    end
+    def dist_dir
+      'dist'
+    end
+    def install_dir(name)
+      "#{dist_dir}/#{name}"
+    end
+    def cmake(name)
+      sh "cmake . -B#{build_dir} -DCMAKE_INSTALL_PREFIX=#{install_dir(name)} -G \"#{cmake_generator}\""
+    end
+    def build
+      sh "cmake --build #{build_dir} --target install"
+    end
+    def test
+      sh "ctest --verbose", build_dir
+    end
+    def clean
+      FileUtils.rm_rf build_dir
+      FileUtils.rm_rf dist_dir
+    end
+    def sh(cmd, dir = '.')
+      Dir.chdir(dir) {
+        raise $? unless system cmd
+      }
+    end
+  end
+
+  class Unix < CMakeBuild
     def cmake_generator
       'Unix Makefiles'
     end
@@ -23,7 +65,7 @@ module Emplace
       "#{name}-#{system_name}.tgz"
     end
     def package(name)
-      sh "tar czf #{package_name(name)} #{name}"
+      sh "tar czf #{package_name(name)} #{name}", dist_dir
     end
   end
 
@@ -39,7 +81,7 @@ module Emplace
     end
   end
 
-  class Windows < CmakeBuild
+  class Windows < CMakeBuild
     def system_name
       "win-#{arch}"
     end
@@ -84,19 +126,18 @@ module Emplace
     end
     def build
       if cfg = ENV['CONFIGURATION']
-        sh "cmake --build . --target install --config #{cfg}"
+        sh "cmake --build #{build_dir} --target install --config #{cfg}"
       else
         super
       end
     end
     def package(name)
-      sh "7z a #{package_name(name)} #{name}"
+      sh "7z a #{package_name(name)} #{name}", dist_dir
     end
   end
 
-  private
   def self.load_env
-    platform = case RUBY_PLATFORM
+    case RUBY_PLATFORM
     when /mswin|mingw/
       Windows
     when /darwin/
@@ -105,21 +146,14 @@ module Emplace
       Linux
     else
       Unix
-    end
-
-    if ENV['TRAVIS']
-      platform.send(:include, Travis)
-    elsif ENV['APPVEYOR']
-      platform.send(:include, AppVeyor) 
-    end
-
-    platform.new.tap {|impl|
-      (impl.methods - Object.methods).each {|m|
-        define_singleton_method(m) {|*args,&block| impl.method(m).call(*args, &block) }
-      }
-    }
+    end.tap {|platform|
+      if ENV['TRAVIS']
+        platform.send(:include, Travis)
+      elsif ENV['APPVEYOR']
+        platform.send(:include, AppVeyor) 
+      end
+    }.new
   end
 
-  IMPL = load_env
 end
 

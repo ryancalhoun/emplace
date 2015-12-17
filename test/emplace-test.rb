@@ -22,17 +22,55 @@ class TestEmplace < Test::Unit::TestCase
     assert_equal 'Visual Studio 14 Win64', AppVeyor.new.cmake_generator
   end
 
+  def testProjectTravis
+    travis = Travis.new
+    project = Emplace::Project.new 'foo', travis
+    project.cmake!
+    project.build!
+    project.test!
+    project.package!
+    assert_equal [
+      'cmake . -Bbuild -DCMAKE_INSTALL_PREFIX=dist/foo -G "Unix Makefiles"',
+      'cmake --build build --target install',
+      'ctest --verbose',
+      'tar czf foo-linux-x86_64-cc.tgz foo'
+    ], travis.commands
+  end
+
+  def testProjectAppVeyor
+    appveyor = AppVeyor.new
+    project = Emplace::Project.new 'foo', appveyor
+    project.cmake!
+    project.build!
+    project.test!
+    project.package!
+    assert_equal [
+      'cmake . -Bbuild -DCMAKE_INSTALL_PREFIX=dist/foo -G "Visual Studio 14 Win64"',
+      'cmake --build build --target install --config CFG',
+      'ctest --verbose',
+      '7z a foo-win-x64-msvc-cfg.zip foo'
+    ], appveyor.commands
+  end
+
   class Travis < Emplace::Linux
+    attr_reader :commands
     include Emplace::Travis
     def arch
       'x86_64'
     end
+    def sh(cmd, dir='')
+      (@commands ||= []) << cmd
+    end
   end
 
   class AppVeyor < Emplace::Windows
+    attr_reader :commands
     include Emplace::AppVeyor
     def arch
       'x64'
+    end
+    def sh(cmd, dir='')
+      (@commands ||= []) << cmd
     end
   end
 
