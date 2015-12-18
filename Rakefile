@@ -7,3 +7,11 @@ Rake::TestTask.new {|t|
 desc 'Run tests'
 task :default => :test
 
+# experiment...
+require_relative './lib/emplace'
+task :fetch do
+  em = Emplace::Project.new('cppunit')
+  url = 'https://github.com/ryancalhoun/cppunit/releases/download/v1.14.0-7/'
+
+  em.fetch! url
+end

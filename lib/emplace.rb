@@ -1,4 +1,5 @@
 require 'fileutils'
+require 'open-uri'
 
 module Emplace
 
@@ -22,6 +23,14 @@ module Emplace
     def package!
       @impl.package @name
     end
+    def fetch!(url)
+      package = @impl.package_name(@name)
+      puts File.join(url, package)
+      source = open(File.join(url, package))
+      @impl.write_file(package) {|dest|
+        IO.copy_stream(source, dest)
+      }
+    end
   end
 
   class CMakeBuild
@@ -30,6 +39,9 @@ module Emplace
     end
     def dist_dir
       'dist'
+    end
+    def vendor_dir
+      'vendor'
     end
     def install_dir(name)
       "#{dist_dir}/#{name}"
@@ -46,11 +58,16 @@ module Emplace
     def clean
       FileUtils.rm_rf build_dir
       FileUtils.rm_rf dist_dir
+      FileUtils.rm_rf vendor_dir
     end
     def sh(cmd, dir = '.')
       Dir.chdir(dir) {
         raise $? unless system cmd
       }
+    end
+    def write_file(name, dir = vendor_dir, &block)
+      FileUtils.mkdir_p(dir)
+      File.open(File.join(dir, name), 'wb', &block)
     end
   end
 
