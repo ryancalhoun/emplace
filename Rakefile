@@ -14,4 +14,5 @@ task :fetch do
   url = 'https://github.com/ryancalhoun/cppunit/releases/download/v1.14.0-7/'
 
   em.fetch! url
+  em.extract!
 end

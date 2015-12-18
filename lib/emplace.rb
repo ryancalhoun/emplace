@@ -23,6 +23,9 @@ module Emplace
     def package!
       @impl.package @name
     end
+    def extract!
+      @impl.extract @name
+    end
     def fetch!(url)
       package = @impl.package_name(@name)
       puts File.join(url, package)
@@ -81,8 +84,11 @@ module Emplace
     def package_name(name)
       "#{name}-#{system_name}.tgz"
     end
-    def package(name)
-      sh "tar czf #{package_name(name)} #{name}", dist_dir
+    def package(name, dir = dist_dir)
+      sh "tar czf #{package_name(name)} #{name}", dir
+    end
+    def extract(name, dir = vendor_dir)
+      sh "tar xzf #{package_name(name)}", dir
     end
   end
 
@@ -152,8 +158,11 @@ module Emplace
           super
         end
       end
-      def package(name)
-        sh "7z a #{package_name(name)} #{name}", dist_dir
+      def package(name, dir = dist_dir)
+        sh "7z a #{package_name(name)} #{name}", dir
+      end
+      def extract(name, dir = vendor_dir)
+        sh "7z x #{package_name(name)}", dir
       end
     }
   end
