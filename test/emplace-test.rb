@@ -52,9 +52,8 @@ class TestEmplace < Test::Unit::TestCase
     ], appveyor.commands
   end
 
-  class Travis < Emplace::Linux
+  class Travis < Emplace.send(:travis, Emplace::Linux)
     attr_reader :commands
-    include Emplace::Travis
     def arch
       'x86_64'
     end
@@ -63,9 +62,8 @@ class TestEmplace < Test::Unit::TestCase
     end
   end
 
-  class AppVeyor < Emplace::Windows
+  class AppVeyor < Emplace.send(:appveyor, Emplace::Windows)
     attr_reader :commands
-    include Emplace::AppVeyor
     def arch
       'x64'
     end

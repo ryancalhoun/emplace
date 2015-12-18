@@ -90,54 +90,59 @@ module Emplace
     end
   end
 
-  module Travis
-    def system_name
-      if cc = ENV['CC']
-        "#{super}-#{cc}"
-      else
-        super
+  private
+  def self.travis(base)
+    Class.new(base) {
+      def system_name
+        if cc = ENV['CC']
+          "#{super}-#{cc}"
+        else
+          super
+        end
       end
-    end
+    }
   end
 
-  module AppVeyor
-    def cmake_generator
-      case arch
-      when 'x86'
-        'Visual Studio 14'
-      when 'x64'
-        'Visual Studio 14 Win64'
+  def self.appveyor(base)
+    Class.new(base) {
+      def cmake_generator
+        case arch
+        when 'x86'
+          'Visual Studio 14'
+        when 'x64'
+          'Visual Studio 14 Win64'
+        end
       end
-    end
-    def arch
-      case ENV['PLATFORM']
-      when'x64'
-        'x64'
-      else
-        'x86'
+      def arch
+        case ENV['PLATFORM']
+        when'x64'
+          'x64'
+        else
+          'x86'
+        end
       end
-    end
-    def system_name
-      if cfg = ENV['CONFIGURATION']
-        "#{super}-msvc-#{cfg.downcase}"
-      else
-        "#{super}-msvc"
+      def system_name
+        if cfg = ENV['CONFIGURATION']
+          "#{super}-msvc-#{cfg.downcase}"
+        else
+          "#{super}-msvc"
+        end
       end
-    end
-    def build
-      if cfg = ENV['CONFIGURATION']
-        sh "cmake --build #{build_dir} --target install --config #{cfg}"
-      else
-        super
+      def build
+        if cfg = ENV['CONFIGURATION']
+          sh "cmake --build #{build_dir} --target install --config #{cfg}"
+        else
+          super
+        end
       end
-    end
-    def package(name)
-      sh "7z a #{package_name(name)} #{name}", dist_dir
-    end
+      def package(name)
+        sh "7z a #{package_name(name)} #{name}", dist_dir
+      end
+    }
   end
 
   def self.load_env
-    case RUBY_PLATFORM
+    platform = case RUBY_PLATFORM
     when /mswin|mingw/
       Windows
     when /darwin/
@@ -146,13 +151,15 @@ module Emplace
       Linux
     else
       Unix
-    end.tap {|platform|
-      if ENV['TRAVIS']
-        platform.send(:include, Travis)
-      elsif ENV['APPVEYOR']
-        platform.send(:include, AppVeyor) 
-      end
-    }.new
+    end
+
+    if ENV['TRAVIS']
+      travis platform
+    elsif ENV['APPVEYOR']
+      appveyor platform
+    else
+      platform
+    end.new
   end
 
 end
