@@ -1,5 +1,4 @@
 require 'fileutils'
-require 'open-uri'
 
 module Emplace
 
@@ -39,9 +38,11 @@ module Emplace
     end
     def fetch!(url)
       package = @impl.package_name(@name)
-      source = open(File.join(url, package))
-      @impl.write_file(package, vendor_dir) {|dest|
-        IO.copy_stream(source, dest)
+
+      IO.popen(['curl', '-fsSL', File.join(url, package)]) {|source|
+        @impl.write_file(package, vendor_dir) {|dest|
+          IO.copy_stream(source, dest)
+        }
       }
     end
   end
