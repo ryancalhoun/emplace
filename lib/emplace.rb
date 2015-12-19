@@ -8,37 +8,8 @@ module Emplace
       @name = name
       @impl = impl
     end
-    def clean!
-      @impl.clean
-    end
-    def cmake!
-      @impl.cmake @name
-    end
-    def build!
-      @impl.build
-    end
-    def test!
-      @impl.test
-    end
-    def package!
-      @impl.package @name
-    end
-    def extract!
-      @impl.extract @name
-    end
-    def fetch!(url)
-      package = @impl.package_name(@name)
-      puts File.join(url, package)
-      source = open(File.join(url, package))
-      @impl.write_file(package) {|dest|
-        IO.copy_stream(source, dest)
-      }
-    end
-  end
-
-  class CMakeBuild
     def build_dir
-      'build'  
+      'build'
     end
     def dist_dir
       'dist'
@@ -46,29 +17,51 @@ module Emplace
     def vendor_dir
       'vendor'
     end
-    def install_dir(name)
-      "#{dist_dir}/#{name}"
-    end
-    def cmake(name)
-      sh "cmake . -B#{build_dir} -DCMAKE_INSTALL_PREFIX=#{install_dir(name)} -G \"#{cmake_generator}\""
-    end
-    def build
-      sh "cmake --build #{build_dir} --target install"
-    end
-    def test
-      sh "ctest --verbose", build_dir
-    end
-    def clean
+    def clean!
       FileUtils.rm_rf build_dir
       FileUtils.rm_rf dist_dir
       FileUtils.rm_rf vendor_dir
+    end
+    def cmake!
+      @impl.cmake @name, build_dir, dist_dir
+    end
+    def build!
+      @impl.build build_dir
+    end
+    def test!
+      @impl.test build_dir
+    end
+    def package!
+      @impl.package @name, dist_dir
+    end
+    def extract!
+      @impl.extract @name, vendor_dir
+    end
+    def fetch!(url)
+      package = @impl.package_name(@name)
+      source = open(File.join(url, package))
+      @impl.write_file(package, vendor_dir) {|dest|
+        IO.copy_stream(source, dest)
+      }
+    end
+  end
+
+  class CMakeBuild
+    def cmake(name, build_dir, dist_dir)
+      sh "cmake . -B#{build_dir} -DCMAKE_INSTALL_PREFIX=#{dist_dir}/#{name} -G \"#{cmake_generator}\""
+    end
+    def build(dir)
+      sh "cmake --build #{dir} --target install"
+    end
+    def test(dir)
+      sh "ctest --verbose", dir
     end
     def sh(cmd, dir = '.')
       Dir.chdir(dir) {
         raise $? unless system cmd
       }
     end
-    def write_file(name, dir = vendor_dir, &block)
+    def write_file(name, dir, &block)
       FileUtils.mkdir_p(dir)
       File.open(File.join(dir, name), 'wb', &block)
     end
@@ -84,10 +77,10 @@ module Emplace
     def package_name(name)
       "#{name}-#{system_name}.tgz"
     end
-    def package(name, dir = dist_dir)
+    def package(name, dir)
       sh "tar czf #{package_name(name)} #{name}", dir
     end
-    def extract(name, dir = vendor_dir)
+    def extract(name, dir)
       sh "tar xzf #{package_name(name)}", dir
     end
   end
@@ -151,17 +144,17 @@ module Emplace
           "#{super}-msvc"
         end
       end
-      def build
+      def build(dir)
         if cfg = ENV['CONFIGURATION']
-          sh "cmake --build #{build_dir} --target install --config #{cfg}"
+          sh "cmake --build #{dir} --target install --config #{cfg}"
         else
           super
         end
       end
-      def package(name, dir = dist_dir)
+      def package(name, dir)
         sh "7z a #{package_name(name)} #{name}", dir
       end
-      def extract(name, dir = vendor_dir)
+      def extract(name, dir)
         sh "7z x #{package_name(name)}", dir
       end
     }
