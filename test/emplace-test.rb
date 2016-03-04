@@ -65,7 +65,7 @@ class TestEmplace < Test::Unit::TestCase
 
     travis = Travis.new
     project = Emplace::Project.new 'foo', travis
-    project.fetch! 'url_source_dir'
+    project.fetch! "file://#{FileUtils.pwd}/url_source_dir"
 
     assert_equal 'foo', File.read('vendor/foo-linux-x86_64-cc.tgz')
   ensure
@@ -81,7 +81,7 @@ class TestEmplace < Test::Unit::TestCase
 
     appveyor = AppVeyor.new
     project = Emplace::Project.new 'foo', appveyor
-    project.fetch! 'url_source_dir'
+    project.fetch! "file://#{FileUtils.pwd}/url_source_dir"
 
     assert_equal 'foo', File.read('vendor/foo-win-x64-msvc-cfg.zip')
   ensure
