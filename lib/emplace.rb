@@ -7,6 +7,9 @@ module Emplace
       @name = name
       @impl = impl
     end
+    def module_dir
+      File.join(File.dirname(File.dirname(__FILE__)), 'modules')
+    end
     def build_dir
       'build'
     end
@@ -22,7 +25,7 @@ module Emplace
       FileUtils.rm_rf vendor_dir
     end
     def cmake!
-      @impl.cmake @name, build_dir, dist_dir
+      @impl.cmake @name, module_dir, build_dir, dist_dir
     end
     def build!
       @impl.build build_dir
@@ -48,8 +51,8 @@ module Emplace
   end
 
   class CMakeBuild
-    def cmake(name, build_dir, dist_dir)
-      sh "cmake . -B#{build_dir} -DCMAKE_INSTALL_PREFIX=#{dist_dir}/#{name} -G \"#{cmake_generator}\""
+    def cmake(name, module_dir, build_dir, dist_dir)
+      sh "cmake . -B#{build_dir} -DCMAKE_MODULE_PATH=#{module_dir} -DCMAKE_INSTALL_PREFIX=#{dist_dir}/#{name} -G \"#{cmake_generator}\""
     end
     def build(dir)
       sh "cmake --build #{dir} --target install"

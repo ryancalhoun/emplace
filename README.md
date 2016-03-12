@@ -18,7 +18,7 @@ Or install it yourself as:
 
     $ gem install emplace
 
-## Usage
+## Rakefile Usage
 
 	require 'emplace'
 	project = Emplace.new 'project-name'
@@ -26,6 +26,12 @@ Or install it yourself as:
 	project.build!
 	project.test!
 	project.package!
+
+## CMake Macros
+
+	include(Emplace)
+
+	install_symbols(<target> [STATIC] DESTINATION <directory>)
 
 ## Contributing
 
