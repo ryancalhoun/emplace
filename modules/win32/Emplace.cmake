@@ -7,8 +7,15 @@ set(CMAKE_C_FLAGS_DEBUG_INIT "/D_DEBUG /MTd /Zi /Ob0 /Od /RTC1")
 
 macro(_install_static_lib_symbols proj dir)
 	install(
-		FILES "${CMAKE_CURRENT_BINARY_DIR}/$(IntDir)${proj}.pdb"
-		DESTINATION symbols
+		FILES "${CMAKE_CURRENT_BINARY_DIR}/${proj}.dir/debug/${proj}.pdb"
+		DESTINATION ${dir}
+		CONFIGURATIONS Debug
+		OPTIONAL
+	)
+	install(
+		FILES "${CMAKE_CURRENT_BINARY_DIR}/${proj}.dir/relwithdebinfo/${proj}.pdb"
+		DESTINATION ${dir}
+		CONFIGURATIONS RelWithDebInfo
 		OPTIONAL
 	)
 endmacro()
