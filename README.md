@@ -21,11 +21,22 @@ Or install it yourself as:
 ## Rakefile Usage
 
 	require 'emplace'
-	project = Emplace.new 'project-name'
+	project = Emplace::Project.new 'project-name'
 	project.cmake!
 	project.build!
 	project.test!
+	# create 'dist/project-<package-name>'
 	project.package!
+
+	dependency = Emplace::Project.new 'dependency-name',
+		url: 'https://dependency.org/download',
+		version: 'v1.0'
+
+	# download 'https://dependency.org/download/v1.0/dependency-name-<package-name>'
+	# or locally, copy from '../dependency-name/dist/dependency-name-<package-name>'
+	dependency.fetch!
+	# extract to vendor/dependency-name/
+	dependency.extract!
 
 ## CMake Macros
 

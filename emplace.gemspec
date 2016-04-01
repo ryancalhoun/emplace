@@ -1,6 +1,6 @@
 Gem::Specification.new {|s|
 	s.name = 'emplace'
-	s.version = '0.3.0'
+	s.version = '0.3.1'
 	s.licenses = ['MIT']
 	s.summary = 'Gem for cmake build settings'
 	s.description = 'Keeps settings for running cmake builds on Travis-CI and AppVeyor.'
