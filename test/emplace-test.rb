@@ -25,14 +25,14 @@ class TestEmplace < Test::Unit::TestCase
 
   def testProjectTravis
     travis = Travis.new
-    project = Emplace::Project.new 'foo', travis
+    project = Emplace::Project.new 'foo', {}, travis
     project.cmake!
     project.build!
     project.test!
     project.package!
     project.extract!
     assert_equal [
-      'cmake . -Bbuild -DCMAKE_INSTALL_PREFIX=dist/foo -G "Unix Makefiles"',
+      "cmake . -Bbuild -DCMAKE_MODULE_PATH=#{modpath} -DCMAKE_INSTALL_PREFIX=dist/foo -G \"Unix Makefiles\"",
       'cmake --build build --target install',
       'ctest --verbose',
       'tar czf foo-linux-x86_64-cc.tgz foo',
@@ -42,14 +42,14 @@ class TestEmplace < Test::Unit::TestCase
 
   def testProjectAppVeyor
     appveyor = AppVeyor.new
-    project = Emplace::Project.new 'foo', appveyor
+    project = Emplace::Project.new 'foo', {}, appveyor
     project.cmake!
     project.build!
     project.test!
     project.package!
     project.extract!
     assert_equal [
-      'cmake . -Bbuild -DCMAKE_INSTALL_PREFIX=dist/foo -G "Visual Studio 14 Win64"',
+      "cmake . -Bbuild -DCMAKE_MODULE_PATH=#{modpath} -DCMAKE_INSTALL_PREFIX=dist/foo -G \"Visual Studio 14 Win64\"",
       'cmake --build build --target install --config CFG',
       'ctest --verbose',
       '7z a foo-win-x64-msvc-cfg.zip foo',
@@ -58,14 +58,14 @@ class TestEmplace < Test::Unit::TestCase
   end
 
   def testFetchTravis
-    FileUtils.mkdir_p 'url_source_dir'
+    FileUtils.mkdir_p 'url_source_dir/1.0'
     FileUtils.mkdir_p 'vendor_test_dir'
 
-    File.write('url_source_dir/foo-linux-x86_64-cc.tgz', 'foo')
+    File.write('url_source_dir/1.0/foo-linux-x86_64-cc.tgz', 'foo')
 
     travis = Travis.new
-    project = Emplace::Project.new 'foo', travis
-    project.fetch! "file://#{FileUtils.pwd}/url_source_dir"
+    project = Emplace::Project.new 'foo', {url: "file://#{FileUtils.pwd}/url_source_dir", version: '1.0'}, travis
+    project.fetch!
 
     assert_equal 'foo', File.read('vendor/foo-linux-x86_64-cc.tgz')
   ensure
@@ -74,19 +74,41 @@ class TestEmplace < Test::Unit::TestCase
   end
 
   def testFetchAppVeyor
-    FileUtils.mkdir_p 'url_source_dir'
+    FileUtils.mkdir_p 'url_source_dir/1.0'
     FileUtils.mkdir_p 'vendor'
 
-    File.write('url_source_dir/foo-win-x64-msvc-cfg.zip', 'foo')
+    File.write('url_source_dir/1.0/foo-win-x64-msvc-cfg.zip', 'foo')
 
     appveyor = AppVeyor.new
-    project = Emplace::Project.new 'foo', appveyor
-    project.fetch! "file://#{FileUtils.pwd}/url_source_dir"
+    project = Emplace::Project.new 'foo', {url: "file://#{FileUtils.pwd}/url_source_dir", version: '1.0'}, appveyor
+    project.fetch!
 
     assert_equal 'foo', File.read('vendor/foo-win-x64-msvc-cfg.zip')
   ensure
     FileUtils.rm_rf 'url_source_dir'
     FileUtils.rm_rf 'vendor'
+  end
+
+  def testFetchLocal
+    FileUtils.mkdir_p 'myproj/vendor'
+    FileUtils.mkdir_p 'foo/dist'
+
+    File.write('foo/dist/foo-linux-x86_64.tgz', 'foo')
+
+    local = Local.new
+    project = Emplace::Project.new 'foo', {}, local
+    Dir.chdir('myproj') {
+      project.fetch!
+    }
+
+    assert_equal 'foo', File.read('myproj/vendor/foo-linux-x86_64.tgz')
+  ensure
+    FileUtils.rm_rf 'myproj'
+    FileUtils.rm_rf 'foo'
+  end
+
+  def modpath
+      File.join(File.dirname(File.dirname(__FILE__)), 'modules')
   end
 
   class Travis < Emplace.send(:travis, Emplace::Linux)
@@ -103,6 +125,16 @@ class TestEmplace < Test::Unit::TestCase
     attr_reader :commands
     def arch
       'x64'
+    end
+    def sh(cmd, dir='')
+      (@commands ||= []) << cmd
+    end
+  end
+
+  class Local < Emplace.send(:local, Emplace::Linux)
+    attr_reader :commands
+    def arch
+      'x86_64'
     end
     def sh(cmd, dir='')
       (@commands ||= []) << cmd

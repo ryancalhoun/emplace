@@ -3,8 +3,9 @@ require 'fileutils'
 module Emplace
 
   class Project
-    def initialize(name, impl = Emplace.load_env)
+    def initialize(name, opts = {}, impl = Emplace.load_env)
       @name = name
+      @opts = opts
       @impl = impl
     end
     def module_dir
@@ -39,14 +40,12 @@ module Emplace
     def extract!
       @impl.extract @name, vendor_dir
     end
-    def fetch!(url)
-      package = @impl.package_name(@name)
-
-      IO.popen(['curl', '-fsSL', File.join(url, package)]) {|source|
-        @impl.write_file(package, vendor_dir) {|dest|
-          IO.copy_stream(source, dest)
-        }
-      }
+    def fetch!
+      @impl.fetch(@name, @opts, vendor_dir)
+    end
+    private
+    def fetch_url
+      @impl.fetch_url(@opts[:url], @opts[:version])
     end
   end
 
@@ -63,6 +62,16 @@ module Emplace
     def sh(cmd, dir = '.')
       Dir.chdir(dir) {
         raise $? unless system cmd
+      }
+    end
+    def fetch(name, opts, vendor_dir)
+      package = package_name(name)
+      url = File.join(opts[:url], opts[:version])
+
+      IO.popen(['curl', '-fsSL', File.join(url, package)]) {|source|
+        write_file(package, vendor_dir) {|dest|
+          IO.copy_stream(source, dest)
+        }
       }
     end
     def write_file(name, dir, &block)
@@ -102,15 +111,59 @@ module Emplace
   end
 
   class Windows < CMakeBuild
+    def cmake_generator
+      case arch
+      when 'x86'
+        'Visual Studio 14'
+      when 'x64'
+        'Visual Studio 14 Win64'
+      end
+    end
+    def arch
+      case platform
+      when'x64'
+        'x64'
+      else
+        'x86'
+      end
+    end
+    def system_name
+      "#{super}-msvc"
+    end
+    def build(dir)
+      sh "cmake --build #{dir} --target install --config #{configuration}"
+    end
+    def package(name, dir)
+      sh "7z a #{package_name(name)} #{name}", dir
+    end
+    def extract(name, dir)
+      sh "7z x #{package_name(name)}", dir
+    end
     def system_name
       "win-#{arch}"
     end
     def package_name(name)
       "#{name}-#{system_name}.zip"
     end
+    def platform
+      ENV['PLATFORM'] || 'x64'
+    end
+    def configuration
+      ENV['CONFIGURATION'] || 'Debug'
+    end
   end
 
   private
+
+  def self.local(base)
+    Class.new(base) {
+      def fetch(name, opts, vendor_dir)
+        FileUtils.mkdir_p(vendor_dir)
+        FileUtils.cp "../#{name}/dist/#{package_name(name)}", vendor_dir        
+      end
+    }
+  end
+
   def self.travis(base)
     Class.new(base) {
       def system_name
@@ -125,41 +178,8 @@ module Emplace
 
   def self.appveyor(base)
     Class.new(base) {
-      def cmake_generator
-        case arch
-        when 'x86'
-          'Visual Studio 14'
-        when 'x64'
-          'Visual Studio 14 Win64'
-        end
-      end
-      def arch
-        case ENV['PLATFORM']
-        when'x64'
-          'x64'
-        else
-          'x86'
-        end
-      end
       def system_name
-        if cfg = ENV['CONFIGURATION']
-          "#{super}-msvc-#{cfg.downcase}"
-        else
-          "#{super}-msvc"
-        end
-      end
-      def build(dir)
-        if cfg = ENV['CONFIGURATION']
-          sh "cmake --build #{dir} --target install --config #{cfg}"
-        else
-          super
-        end
-      end
-      def package(name, dir)
-        sh "7z a #{package_name(name)} #{name}", dir
-      end
-      def extract(name, dir)
-        sh "7z x #{package_name(name)}", dir
+        "#{super}-msvc-#{configuration.downcase}"
       end
     }
   end
@@ -181,7 +201,7 @@ module Emplace
     elsif ENV['APPVEYOR']
       appveyor platform
     else
-      platform
+      local platform
     end.new
   end
 
