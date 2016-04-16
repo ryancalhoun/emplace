@@ -8,19 +8,9 @@ Gem::Specification.new {|s|
 	s.authors = ['Ryan Calhoun']
 	s.email = ['ryanjamescalhoun@gmail.com']
   
-	s.files = [
-    'bin/emplace',
-    'lib/emplace.rb',
-    'lib/emplace/app.rb',
-    'modules/Emplace.cmake',
-    'modules/unix/Emplace.cmake',
-    'modules/win32/Emplace.cmake',
-    'LICENSE',
-    'README.md'
-  ]
-  s.executables = [
-    'emplace'
-  ]
-	s.test_files = ['test/emplace-test.rb', 'Rakefile']
+	s.files = Dir["{bin,lib,modules}/**/*"] + %w(LICENSE README.md)
+
+  s.executables = s.files.grep(/^bin\//).map {|f| File.basename f}
+	s.test_files = Dir["{test/**/*"] + %w(Rakefile)
 }
 

@@ -34,6 +34,7 @@ module Emplace
         exit_with options, 1
       end
 
+      exit command.run(args).to_i
     end
 
     def self.commands
@@ -44,36 +45,53 @@ module Emplace
       Emplace.to_s.downcase
     end
 
+    def self.name_of(command)
+      command.class.name.split('::').last.downcase
+    end
+
     def self.exit_with(message, code = 0)
       puts message
       exit code
     end
+    module Command
+      def set(name)
+        ->(val) { self.instance_variable_set("@#{name}", val) }
+      end
+      def option_parser(args, &block)
+        options = OptionParser.new {|opts|
+          opts.banner = "Usage: #{App.emplace} #{App.name_of(self)} [OPTIONS]"
+          block.call opts
+          opts.separator ""
+        }
+        begin
+          options.parse! args
+        rescue OptionParser::ParseError => e
+          STDERR.puts e
+          exit_with options, 1
+        end
+
+        options
+      end
+    end
   end
   class Commands
     def initialize
-      @commands = [
-        Create.new,
-      ]
+      @commands = Emplace::App.constants.map {|c| Emplace::App.const_get(c)}.select {|c| Class === c}.map(&:new)
     end
     def find(name)
       @commands.select {|command|
-        name_of(command) =~ /^#{name}/
+        App.name_of(command) =~ /^#{name}/
       }.first
-    end
-    def name_of(command)
-      command.class.name.split('::').last.downcase
     end
     def to_s
       "\n" + @commands.map {|command|
-        sprintf "        %-28s %s", name_of(command), command.description
+        sprintf "        %-28s %s", App.name_of(command), command.description
       }.join("\n")
     end
   end
-  class Create
-    def description
-      "Create classes and test classes"
-    end
-    def run(args)
-    end
-  end
 end
+
+Dir[File.join(File.dirname(__FILE__), 'app', '*.rb')].each {|f|
+  require f
+}
+
