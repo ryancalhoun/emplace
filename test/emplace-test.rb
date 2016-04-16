@@ -71,6 +71,7 @@ class TestEmplace < Test::Unit::TestCase
   ensure
     FileUtils.rm_rf 'url_source_dir'
     FileUtils.rm_rf 'vendor'
+    FileUtils.rm_rf 'vendor_test_dir'
   end
 
   def testFetchAppVeyor
