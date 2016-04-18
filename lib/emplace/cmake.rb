@@ -1,11 +1,15 @@
+require 'fileutils'
+
 module Emplace
   class CMake
     CMAKE_LISTS = 'CMakeLists.txt'
 
     attr_reader :path
 
-    def initialize(path = Dir.pwd)
+    def initialize(path = Dir.pwd, name: nil)
       @path = File.absolute_path path
+
+      set_project_name! name if name
     end
 
     def has_cmake_lists?
@@ -55,6 +59,22 @@ module Emplace
       cmake_contents.map(&:text).join
     end
 
+    def save!
+      FileUtils.mkdir_p path
+      File.open(cmake_lists, 'w') {|f|
+        f.write to_s
+      }
+    end
+
+    def set_project_name!(name)
+      project = find('project')
+      unless project
+        project = Statement.new('project')
+        statements << project
+      end
+      project.arguments = [name]
+    end
+
     def parse_cmake_file!(io)
       @lines = []
       io.each_line {|line| append_line! line}
@@ -75,10 +95,16 @@ module Emplace
       def initialize(text)
         @text = text
         @arguments = []
-        if m = /^\s*(\w+)\s*\(([^)]*)\)?/.match(text)
+        if /^\w+$/.match(text)
+          @name = text
+        elsif m = /^\s*(\w+)\s*\(([^)]*)\)?/.match(text)
           @name = m[1]
           split_args m[2]
         end
+      end
+      def arguments=(arguments)
+        @arguments = arguments
+        text.sub!(/(\([\W]+).*([\W]+\))/m, "\\1#{arguments.join(' ')}\\2")
       end
       def done?
         !! /\)\s*$/m.match(text)

@@ -124,6 +124,13 @@ class EmplaceCMakeTest < Test::Unit::TestCase
     assert_equal text, project(text).to_s
   end
 
+  def testSave
+    cmake = Emplace::CMake.new 'projdir/foo', name: 'foo'
+    cmake.save!
+
+    assert_equal cmake.to_s, File.read('projdir/foo/CMakeLists.txt')
+  end
+
   def project(contents)
     Emplace::CMake.new.tap {|proj|
       proj.parse_cmake_file! StringIO.new(contents)
