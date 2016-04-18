@@ -55,7 +55,26 @@ class EmplaceCMakeTest < Test::Unit::TestCase
          foo
       )
     END
+  end
 
+  def testFindRoot
+    FileUtils.mkdir_p 'projdir/src/lib/foo'
+    File.open('projdir/src/lib/foo/CMakeLists.txt', 'w') {|f|
+      f.write <<-END
+      add_library(foo ${SOURCES}
+      END
+    }
+    assert_raises {
+       Emplace::CMake.new('projdir/src/lib/foo').find_root.path
+    }
+
+    File.open('projdir/CMakeLists.txt', 'w') {|f|
+      f.write <<-END
+      project(root_project)
+      END
+    }
+    assert_equal File.absolute_path('projdir'), Emplace::CMake.new('projdir').find_root.path
+    assert_equal File.absolute_path('projdir'), Emplace::CMake.new('projdir/src/lib/foo').find_root.path
   end
 
   def testStatements

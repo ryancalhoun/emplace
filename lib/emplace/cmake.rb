@@ -2,8 +2,10 @@ module Emplace
   class CMake
     CMAKE_LISTS = 'CMakeLists.txt'
 
+    attr_reader :path
+
     def initialize(path = Dir.pwd)
-      @path = path
+      @path = File.absolute_path path
     end
 
     def has_cmake_lists?
@@ -15,7 +17,8 @@ module Emplace
     end
 
     def cmake_contents
-      @lines || File.open(cmake_lists, 'r') {|f| parse_cmake_file! f} && @lines
+      @lines || read_cmake_file{|f| parse_cmake_file! f}
+      @lines || []
     end
 
     def project_name
@@ -32,6 +35,16 @@ module Emplace
 
     def is_root?
       !! project_name && ! library_name && ! executable_name
+    end
+
+    def find_root
+      cmake = self
+      until cmake.is_root?
+        parent = File.dirname(cmake.path)
+        raise 'cannot find root of cmake project' if cmake.path == parent
+        cmake = CMake.new parent
+      end
+      cmake
     end
 
     def statements
@@ -96,6 +109,13 @@ module Emplace
     end
 
     private
+    def read_cmake_file(&block)
+      begin
+        File.open(cmake_lists, 'r', &block) 
+      rescue Errno::ENOENT
+      end
+    end
+
     def append_line!(line)
       if @lines.last && ! @lines.last.done?
         @lines.last << line
