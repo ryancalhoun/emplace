@@ -6,10 +6,10 @@ module Emplace
 
     attr_reader :path
 
-    def initialize(path = Dir.pwd, name: nil)
+    def initialize(path = Dir.pwd, opts = {})
       @path = File.absolute_path path
 
-      set_project_name! name if name
+      set_project_name! opts[:name] if opts[:name]
     end
 
     def has_cmake_lists?
