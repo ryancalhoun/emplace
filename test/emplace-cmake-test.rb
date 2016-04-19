@@ -128,7 +128,15 @@ class EmplaceCMakeTest < Test::Unit::TestCase
     cmake = Emplace::CMake.new 'projdir/foo', name: 'foo'
     cmake.save!
 
-    assert_equal cmake.to_s, File.read('projdir/foo/CMakeLists.txt')
+    assert_true File.exists?('projdir/foo/CMakeLists.txt')
+    assert_equal "project(foo)\n", cmake.to_s
+  end
+
+  def testAddSourceFiles
+    cmake = Emplace::CMake.new 'projdir/foo'
+    cmake.library('foo').sources << 'Foo.cpp' << 'Foo.h'
+
+    assert_equal "add_library(foo Foo.cpp Foo.h)\n", cmake.to_s
   end
 
   def project(contents)

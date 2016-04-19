@@ -9,7 +9,7 @@ module Emplace
     def initialize(path = Dir.pwd, opts = {})
       @path = File.absolute_path path
 
-      set_project_name! opts[:name] if opts[:name]
+      set_project opts[:name] if opts[:name]
     end
 
     def has_cmake_lists?
@@ -56,7 +56,9 @@ module Emplace
     end
 
     def to_s
-      cmake_contents.map(&:text).join
+      cmake_contents.map {|line|
+        line.text.chomp
+      }.join("\n") + "\n"
     end
 
     def save!
@@ -66,18 +68,55 @@ module Emplace
       }
     end
 
-    def set_project_name!(name)
-      project = find('project')
-      unless project
-        project = Statement.new('project')
-        statements << project
-      end
-      project.arguments = [name]
+    def set_project(name)
+      acquire!('project').arguments = [name]
+    end
+
+    def library(name)
+      Target.new('add_library', name, self)
     end
 
     def parse_cmake_file!(io)
       @lines = []
       io.each_line {|line| append_line! line}
+    end
+
+    class Target
+      attr_reader :type, :name, :project
+      def initialize(type, name, project)
+        @type, @name, @project = type, name, project
+      end
+      def exists?
+        @project.find(type, name)
+      end
+      def create!
+        @target ||= project.acquire!(type, name)
+      end
+      def sources
+        SourceList.new(self)
+      end
+    end
+
+    class SourceList
+      attr_reader :target
+      def initialize(target)
+        @target = target
+      end
+      def <<(file)
+        t = target.create!
+        t.arguments << file
+      end
+    end
+
+    class ArgumentList < Array
+      def initialize(statement)
+        @statement = statement
+      end
+      def <<(arg)
+        super
+        @statement.update_arguments(self)
+        self
+      end
     end
 
     class Whitespace
@@ -94,17 +133,25 @@ module Emplace
       attr_reader :text, :name, :arguments
       def initialize(text)
         @text = text
-        @arguments = []
-        if /^\w+$/.match(text)
-          @name = text
+        @arguments = ArgumentList.new(self)
+        if /^\w+$/.match(text.chomp)
+          @name = text.chomp
         elsif m = /^\s*(\w+)\s*\(([^)]*)\)?/.match(text)
           @name = m[1]
           split_args m[2]
         end
       end
       def arguments=(arguments)
-        @arguments = arguments
-        text.sub!(/(\([\W]+).*([\W]+\))/m, "\\1#{arguments.join(' ')}\\2")
+        @arguments.clear
+        @arguments.concat arguments
+        update_arguments arguments
+      end
+      def update_arguments(args)
+        if /\(.*\)/m.match(text)
+          text.sub!(/(\([\s\r\n]*).*?([\s\r\n]*\))/, "\\1#{args.join(' ')}\\2")
+        else
+          @text += "(#{args.join(' ')})"
+        end
       end
       def done?
         !! /\)\s*$/m.match(text)
@@ -116,7 +163,7 @@ module Emplace
         end
       end
       def split_args(text)
-        @arguments += text.split(/\s(?=(?:[^"]|"[^"]*")*$)|[\r\n]/).select {|a| ! a.empty?}
+        @arguments.concat text.split(/\s(?=(?:[^"]|"[^"]*")*$)|[\r\n]/).select {|a| ! a.empty?}
       end
     end
 
@@ -126,12 +173,25 @@ module Emplace
       end
     end
 
-    def find(name)
-      statements.find {|s| s.name == name}
+    def find_all(name, arg = nil)
+      exp = -> (s) { s.name.downcase == name.downcase }
+      exp = -> (s) { exp[s] && s.arguments.first == arg } if arg
+
+      statements.find_all(&exp)
     end
 
-    def find_all(name)
-      statements.find_all {|s| s.name == name}
+    def find(name, arg = nil)
+      find_all(name, arg).first
+    end
+
+    def acquire!(name, arg = nil)
+      s = find(name, arg)
+      unless s
+        s = Statement.new(name)
+        s.arguments << arg if arg
+        (@lines ||= []) << s
+      end
+      s
     end
 
     private
@@ -153,4 +213,3 @@ module Emplace
     end
   end
 end
-
