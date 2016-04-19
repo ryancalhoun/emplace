@@ -1,4 +1,5 @@
 [![Gem Version](https://badge.fury.io/rb/emplace.svg)](http://badge.fury.io/rb/emplace)
+[![Status](https://travis-ci.org/ryancalhoun/emplace.svg?branch=master)](https://travis-ci.org/ryancalhoun/emplace)
 
 # Emplace
 
