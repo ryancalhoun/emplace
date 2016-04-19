@@ -174,8 +174,8 @@ module Emplace
     end
 
     def find_all(name, arg = nil)
-      exp = -> (s) { s.name.downcase == name.downcase }
-      exp = -> (s) { exp[s] && s.arguments.first == arg } if arg
+      exp = ->(s) { s.name.downcase == name.downcase }
+      exp = ->(s) { exp[s] && s.arguments.first == arg } if arg
 
       statements.find_all(&exp)
     end
