@@ -4,12 +4,11 @@ module Emplace
   class CMake
     CMAKE_LISTS = 'CMakeLists.txt'
 
-    attr_reader :path
+    attr_reader :path, :file
 
-    def initialize(path = Dir.pwd, opts = {})
+    def initialize(path = Dir.pwd, file = CMAKE_LISTS)
       @path = File.absolute_path path
-
-      set_project opts[:name] if opts[:name]
+      @file = file
     end
 
     def has_cmake_lists?
@@ -17,7 +16,7 @@ module Emplace
     end
 
     def cmake_lists
-      @cmake_lists ||= File.join(@path, CMAKE_LISTS)
+      @cmake_lists ||= File.join(path, file)
     end
 
     def cmake_contents
@@ -68,8 +67,50 @@ module Emplace
       }
     end
 
-    def set_project(name)
+    def set_project!(name)
       acquire!('project').arguments = [name]
+    end
+
+    def apply_template!(template)
+      @lines.each {|line|
+        line.apply_template! template
+      }
+    end
+
+    GLOBAL_STATEMENTS = %w(
+      include_directories
+      link_libraries
+      link_directories
+      enable_testing
+    )
+
+    TARGET_STATEMENTS = %w(
+      add_executable
+      add_library
+      add_test
+      target_link_libraries
+    )
+
+    def merge!(project)
+      project.statements.each {|other|
+        case other.name
+        when 'project'
+          set_project! other.arguments.first
+        when *GLOBAL_STATEMENTS
+          if mine = find(other.name) 
+            other.arguments.each {|arg| mine.arguments << arg}
+          else
+            @lines << other
+          end 
+        when *TARGET_STATEMENTS
+          if mine = find(other.name, other.arguments.first) 
+            target,*args = other.arguments
+            args.each {|arg| mine.arguments << arg}
+          else
+            @lines << other
+          end 
+        end
+      }
     end
 
     def library(name)
@@ -117,12 +158,24 @@ module Emplace
         @statement.update_arguments(self)
         self
       end
+      def apply_template!(template)
+        each {|arg|
+          template.each {|key,val|
+            arg.gsub! "%#{key}%", val
+          }
+        }
+      end
     end
 
     class Whitespace
       attr_reader :text
       def initialize(text)
         @text = text
+      end
+      def apply_template!(template)
+        template.each {|key,val|
+          text.gsub! "%#{key}%", val
+        }
       end
       def done?
         true
@@ -140,6 +193,12 @@ module Emplace
           @name = m[1]
           split_args m[2]
         end
+      end
+      def apply_template!(template)
+        template.each {|key,val|
+          text.gsub! "%#{key}%", val
+        }
+        arguments.apply_template!(template)
       end
       def arguments=(arguments)
         @arguments.clear
@@ -174,8 +233,8 @@ module Emplace
     end
 
     def find_all(name, arg = nil)
-      exp = ->(s) { s.name.downcase == name.downcase }
-      exp = ->(s) { exp[s] && s.arguments.first == arg } if arg
+      exp = by_name = ->(s) { s.name.downcase == name.downcase }
+      exp = ->(s) { by_name[s] && s.arguments.first == arg } if arg
 
       statements.find_all(&exp)
     end

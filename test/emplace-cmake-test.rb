@@ -125,7 +125,8 @@ class EmplaceCMakeTest < Test::Unit::TestCase
   end
 
   def testSave
-    cmake = Emplace::CMake.new 'projdir/foo', name: 'foo'
+    cmake = Emplace::CMake.new 'projdir/foo'
+    cmake.set_project!('foo')
     cmake.save!
 
     assert_true File.exists?('projdir/foo/CMakeLists.txt')
@@ -137,6 +138,43 @@ class EmplaceCMakeTest < Test::Unit::TestCase
     cmake.library('foo').sources << 'Foo.cpp' << 'Foo.h'
 
     assert_equal "add_library(foo Foo.cpp Foo.h)\n", cmake.to_s
+  end
+
+  def testLoadTemplates
+    cmake = project(<<-END)
+      project(%project%)
+      add_executable(%library%_test)
+    END
+
+    cmake.apply_template!(
+      project: 'foo',
+      library: 'bar'
+    )
+
+    assert_equal [
+      "project(foo)",
+      "add_executable(bar_test)"
+    ], cmake.to_s.lines.map(&:strip)
+  end
+
+  def testMergeProjects
+    cmake = project(<<-END)
+      project(nope)
+      include_directories(foo)
+      target_link_libraries(thing wow)
+    END
+    cmake2 = project(<<-END)
+      project(yep)
+      include_directories(bar)
+      target_link_libraries(thing cool)
+    END
+
+    cmake.merge! cmake2
+    assert_equal [
+      "project(yep)",
+      "include_directories(foo bar)",
+      "target_link_libraries(thing wow cool)"
+    ], cmake.to_s.lines.map(&:strip)
   end
 
   def project(contents)
