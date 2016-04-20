@@ -7,7 +7,7 @@ require 'emplace/cmake'
 class EmplaceCMakeTest < Test::Unit::TestCase
 
   def setup
-    FileUtils.mkdir 'projdir'
+    FileUtils.mkdir_p 'projdir'
   end
 
   def teardown
@@ -104,6 +104,27 @@ class EmplaceCMakeTest < Test::Unit::TestCase
     END
   end
 
+  def testIfElse
+    s = project(<<-END).find('if', 'UNIX')
+      if(UNIX)
+        if(APPLE)
+          set(os apple)
+        else()
+          set(os linux)
+        endif()
+      else()
+        set(os windows)
+      endif()
+    END
+
+    assert_equal 'set(os windows)', s.get('else').to_s.chomp
+
+    t = s.get.find('if', 'APPLE')
+    assert_equal 'set(os apple)', t.get('if').to_s.chomp
+    assert_equal 'set(os linux)', t.get('else').to_s.chomp
+    
+  end
+
   def toS
     text = <<-END
       # CMAKE PROJECT
@@ -122,22 +143,6 @@ class EmplaceCMakeTest < Test::Unit::TestCase
     END
 
     assert_equal text, project(text).to_s
-  end
-
-  def testSave
-    cmake = Emplace::CMake.new 'projdir/foo'
-    cmake.set_project!('foo')
-    cmake.save!
-
-    assert_true File.exists?('projdir/foo/CMakeLists.txt')
-    assert_equal "project(foo)\n", cmake.to_s
-  end
-
-  def testAddSourceFiles
-    cmake = Emplace::CMake.new 'projdir/foo'
-    cmake.library('foo').sources << 'Foo.cpp' << 'Foo.h'
-
-    assert_equal "add_library(foo Foo.cpp Foo.h)\n", cmake.to_s
   end
 
   def testLoadTemplates
@@ -167,13 +172,22 @@ class EmplaceCMakeTest < Test::Unit::TestCase
       project(yep)
       include_directories(bar)
       target_link_libraries(thing cool)
+      if(UNIX)
+        list(APPEND SOURCES
+          unix/Foo.cpp
+        )
+      else()
+        list(APPEND SOURCES
+          win32/Foo.cpp
+        )
+      end
     END
 
     cmake.merge! cmake2
     assert_equal [
       "project(yep)",
-      "include_directories(foo bar)",
-      "target_link_libraries(thing wow cool)"
+      "include_directories(", "foo", "bar", ")",
+      "target_link_libraries(", "thing", "wow", "cool", ")"
     ], cmake.to_s.lines.map(&:strip)
   end
 
