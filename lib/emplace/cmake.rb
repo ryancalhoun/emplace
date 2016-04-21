@@ -1,5 +1,4 @@
 require 'fileutils'
-require 'byebug'
 
 module Emplace
   class CMake
