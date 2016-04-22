@@ -192,14 +192,20 @@ class EmplaceCMakeTest < Test::Unit::TestCase
         list(APPEND SOURCES
           win32/Foo.cpp
         )
-      end
+      endif()
     END
 
     cmake.merge! cmake2
     assert_equal [
       "project(yep)",
       "include_directories(", "foo", "bar", ")",
-      "target_link_libraries(", "thing", "wow", "cool", ")"
+      "target_link_libraries(", "thing", "wow", "cool", ")",
+      "if(UNIX)",
+      "list(APPEND SOURCES unix/Foo.cpp)",
+      "else()",
+      "list(APPEND SOURCES win32/Foo.cpp)",
+      "endif()",
+      ""
     ], cmake.to_s.lines.map(&:strip)
   end
 

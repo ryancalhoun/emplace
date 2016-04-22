@@ -95,20 +95,21 @@ module Emplace
         case other.name
         when 'project'
           set_project! other.arguments.first
+          next
         when *GLOBAL_STATEMENTS
           if mine = find(other.name) 
             other.arguments.each {|arg| mine.arguments << arg}
-          else
-            @lines << other
+            next
           end 
         when *TARGET_STATEMENTS
           if mine = find(other.name, other.arguments.first) 
             target,*args = other.arguments
             args.each {|arg| mine.arguments << arg}
-          else
-            @lines << other
+            next
           end 
+        else
         end
+        @lines.add_line other
       }
     end
 
@@ -146,7 +147,9 @@ module Emplace
         }
       end
       def add_line(line)
-        if @lines.last && ! @lines.last.done?
+        if line.is_a? Line
+          @lines << line
+        elsif @lines.last && ! @lines.last.done?
           @lines.last.add_line line
         elsif /^\s*(#.*)?$/.match(line)
           @lines << Whitespace.new(line)
@@ -290,6 +293,11 @@ module Emplace
           branch.apply_template! template
           command.apply_template! template
         }
+      end
+      def to_s
+        @commands.map {|branch,command|
+          [branch.to_s, *command.to_s.gsub(/^()/, "\t")].map(&:chomp)
+        }.join("\n") + "\n"
       end
       def add_line(line)
         if ! @commands.last[0].done?
