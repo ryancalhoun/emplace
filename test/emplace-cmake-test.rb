@@ -109,6 +109,8 @@ class EmplaceCMakeTest < Test::Unit::TestCase
       if(UNIX)
         if(APPLE)
           set(os apple)
+        elseif(BSD)
+          set(os bsd)
         else()
           set(os linux)
         endif()
@@ -121,8 +123,18 @@ class EmplaceCMakeTest < Test::Unit::TestCase
 
     t = s.get.find('if', 'APPLE')
     assert_equal 'set(os apple)', t.get('if').to_s.chomp
+    assert_equal 'set(os bsd)', t.get('elseif', 'BSD').to_s.chomp
     assert_equal 'set(os linux)', t.get('else').to_s.chomp
-    
+  end
+
+  def testForeach
+    s = project(<<-END).find('foreach', 'file', '${list_of_files}')
+      foreach(file ${list_of_files})
+        get_filename_component(path ${file} PATH)
+      endforeach()
+    END
+
+    assert_equal 'get_filename_component(path ${file} PATH)', s.get.to_s.chomp
   end
 
   def toS

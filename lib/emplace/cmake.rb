@@ -120,16 +120,16 @@ module Emplace
       io.each_line {|line| @lines.add_line line}
     end
 
-    def find_all(name, arg = nil)
-      cmake_contents.find_all(name, arg)
+    def find_all(name, *args)
+      cmake_contents.find_all(name, *args)
     end
 
-    def find(name, arg = nil)
-      cmake_contents.find(name, arg)
+    def find(name, *args)
+      cmake_contents.find(name, *args)
     end
 
-    def acquire!(name, arg = nil)
-      cmake_contents.acquire!(name, arg)
+    def acquire!(name, *args)
+      cmake_contents.acquire!(name, *args)
     end
 
     class Lines
@@ -177,22 +177,23 @@ module Emplace
         end
       end
 
-      def find_all(name, arg = nil)
-        exp = by_name = ->(s) { s.name.downcase == name.downcase }
-        exp = ->(s) { by_name[s] && s.arguments.first == arg } if arg
-
-        statements.find_all(&exp)
+      def find_all(name, *args)
+        statements.find_all {|s|
+          s.name.downcase == name.downcase && s.arguments.first(args.length) == args
+        }
       end
 
-      def find(name, arg = nil)
-        find_all(name, arg).first
+      def find(name, *args)
+        find_all(name, *args).first
       end
 
-      def acquire!(name, arg = nil)
-        s = find(name, arg)
+      def acquire!(name, *args)
+        s = find(name, *args)
         unless s
           s = Command.new(name)
-          s.arguments << arg if arg
+          args.each {|arg|
+            s.arguments << arg
+          }
           @lines << s
         end
         s
@@ -227,7 +228,7 @@ module Emplace
         when 'if'
           IfElse.new command
         when 'foreach'
-          IfElse.new command
+          Foreach.new command
         else
           command
         end
@@ -312,9 +313,9 @@ module Emplace
       end
       def get(name = nil, arg = nil)
         if name 
-          exp = by_name = ->(s) { s[0].name.downcase == name.downcase }
-          exp = ->(s) { by_name[s] && s[0].arguments.first == arg } if arg
-          if branch = @commands.find(&exp)
+          if branch = @commands.find {|s|
+            s[0].name.downcase == name.downcase && (! arg || s[0].arguments.first == arg)
+          }
             branch[1]
           end
         else
@@ -324,10 +325,13 @@ module Emplace
     end
     class Foreach < Branch
       def is_branch?(command)
-        command.nae == 'endforeach'
+        command.name == 'endforeach'
       end
       def done?
         @commands.last[0].name == 'endforeach' && @commands.last[0].done?
+      end
+      def get
+        @commands.first[1]
       end
     end
 
