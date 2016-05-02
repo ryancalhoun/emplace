@@ -178,12 +178,14 @@ class EmplaceCMakeTest < Test::Unit::TestCase
     cmake = project(<<-END)
       project(nope)
       include_directories(foo)
+      set(FOO WOW)
       target_link_libraries(thing wow)
     END
     cmake2 = project(<<-END)
       project(yep)
       include_directories(bar)
       target_link_libraries(thing cool)
+      set(FOO BAR)
       if(UNIX)
         list(APPEND SOURCES
           unix/Foo.cpp
@@ -199,6 +201,7 @@ class EmplaceCMakeTest < Test::Unit::TestCase
     assert_equal [
       "project(yep)",
       "include_directories(", "foo", "bar", ")",
+      "set(FOO BAR)",
       "target_link_libraries(", "thing", "wow", "cool", ")",
       "if(UNIX)",
       "list(APPEND SOURCES unix/Foo.cpp)",

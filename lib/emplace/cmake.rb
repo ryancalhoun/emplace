@@ -83,6 +83,10 @@ module Emplace
       enable_testing
     )
 
+    REPLACE_STATEMENTS = %w(
+      set
+    )
+
     TARGET_STATEMENTS = %w(
       add_executable
       add_library
@@ -101,6 +105,11 @@ module Emplace
             other.arguments.each {|arg| mine.arguments << arg}
             next
           end 
+        when *REPLACE_STATEMENTS
+          if mine = find(other.name, other.arguments.first) 
+            mine.arguments = other.arguments
+            next
+          end
         when *TARGET_STATEMENTS
           if mine = find(other.name, other.arguments.first) 
             target,*args = other.arguments
